@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import re
 from io import BytesIO
@@ -9,10 +11,10 @@ import logging
 import json
 #import ftplib
 #import netrc
+import threading
 
 
-
-VERSION = "0.2c"
+VERSION = "0.2e"
 
 
 ## next todos
@@ -21,12 +23,11 @@ VERSION = "0.2c"
 #
 # - trigger multiple images after motion detect
 # - optional switch to livestream
-# - transfer images (eg. vi ftp)
 # - fhem notify/trigger event (or mqtt?)
 # - do same stuff with node.js ;)
 
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         filename='pir.log')
@@ -42,8 +43,8 @@ camera = PiCamera()
 camera.resolution = (768, 1024)
 camera.rotation = 270
 
-image_count = 0
-MAX_IMAGES = 60
+
+#MAX_IMAGES = 60
 MIN_ONTIME = 15
 start = 0
 
@@ -87,26 +88,21 @@ def its_dark():
     return True
 
 
-def get_oldest(dir):
-    files = sorted(os.listdir(dir),
-                       key=lambda f: os.path.getctime("{}/{}".format(dir, f)))
-    if len(files) > 0:
-        logging.debug("oldest file: " + files[0])
-        oldest = files[0]
+def light_off():
+    global start
+    timestamp = datetime.datetime.now().strftime(datestring)
+    duration = time.time() - start
+    logging.info('Light OFF, ' + timestamp  + ' dauer: ' + str(duration) + 's')
+    GPIO.output(18, GPIO.LOW)
+    # if GPIO.input(SENSOR_PIN):
+    #     logging.info('sensor output still high, not turning off!')
+    # else:
+    #     GPIO.output(18, GPIO.LOW)
 
-        try:
-            index = int(re.search('image(\d+).jpg', oldest).group(1))
-        except AttributeError:
-            logging.error("Error: wrong file name: " + oldest)
-            index = 0
-    else:
-        index = 0
-    return index
 
 
 
 def callback_pir(channel):
-    global image_count
     global start
     timestamp = datetime.datetime.now().strftime(datestring)
 
@@ -114,19 +110,17 @@ def callback_pir(channel):
         start = time.time()
         image_name = imgdir + "image_" + timestamp + ".jpg"
         logging.info('Es gab eine Bewegung! ' + timestamp  +' Bild:' + image_name)
-        #if image_count >= MAX_IMAGES:
-        #    image_count = 0
-        #else:
-        #    image_count = image_count + 1
-
+        #th_light_off = threading.Timer(35.0, light_off)
+        #th_light_off.start()
         # turn on lamp if it's dark ...
         if its_dark():
             GPIO.output(18, GPIO.HIGH)
         time.sleep(2)
         #camera.start_preview()
         camera.capture(image_name)
-        time.sleep(2)
-        os.system('scp "%s" "%s"' % (image_name, os.environ['SCPHOST']))
+        if scp_images:
+            time.sleep(2)
+            os.system('scp "%s" "%s"' % (image_name, os.environ['PIR_SCPHOST']))
 
     else:
         duration = time.time() - start
@@ -137,14 +131,17 @@ def callback_pir(channel):
 
 
 
-logging.info("Hallo Tuer version: " + VERSION)
-
-image_count = get_oldest(imgdir)
-
-logging.info("Starting with image count: " + str(image_count))
-
-
 try:
+    logging.info("Hallo Tuer version: " + VERSION)
+
+    if 'PIR_SCPHOST' in os.environ:
+        logging.info("scp host: " + os.environ['PIR_SCPHOST'])
+        scp_images = True
+    else:
+        print('no scphost defined')
+        scp_images = False
+
+
     GPIO.add_event_detect(SENSOR_PIN , GPIO.BOTH, callback=callback_pir)
     while 1:
         time.sleep(100)
