@@ -16,12 +16,12 @@ import signal
 import sys
 
 
-VERSION = "0.2g"
+VERSION = "0.2h"
 # pin 16 on header (bcm)
 SENSOR_PIN = 23
 # pin 12 on header
 RELAIS_PIN = 18
-PICAM_ROTATE = 180
+PICAM_ROTATE = 270
 
 ## next todos
 # - start thread at sensor trigger/rising edge
@@ -83,18 +83,22 @@ def its_dark():
         print "error opening astronomy.dat file"
         return True
 
-    sunrise = data['query']['results']['channel']['astronomy']['sunrise']
-    sunset  = data['query']['results']['channel']['astronomy']['sunset']
+    try:
+        sunrise = data['query']['results']['channel']['astronomy']['sunrise']
+        sunset  = data['query']['results']['channel']['astronomy']['sunset']
 
-    format = '%I:%M %p'
-    sunrise_date = time.strptime(sunrise, format)
-    sunset_date  = time.strptime(sunset, format)
-    sr = datetime.datetime.strptime(sunrise, '%I:%M %p').time().strftime("%H:%M")
-    ss = datetime.datetime.strptime(sunset,  '%I:%M %p').time().strftime("%H:%M")
+        format = '%I:%M %p'
+        sunrise_date = time.strptime(sunrise, format)
+        sunset_date  = time.strptime(sunset, format)
+        sr = datetime.datetime.strptime(sunrise, '%I:%M %p').time().strftime("%H:%M")
+        ss = datetime.datetime.strptime(sunset,  '%I:%M %p').time().strftime("%H:%M")
     
-    logging.debug("now: " + now)
-    logging.debug("sr:  " + sr)
-    logging.debug("ss:  " + ss)
+        logging.debug("now: " + now)
+        logging.debug("sr:  " + sr)
+        logging.debug("ss:  " + ss)
+    except Exception, e:
+        logging.error("cannot query astronomy file (wrong json??)")
+        return True
 
     if now < ss and now > sr:
         logging.debug("It's NOT dark (not turn on light)")
