@@ -14,14 +14,14 @@ import json
 import threading
 import signal
 import sys
+import glob
 
-
-VERSION = "0.2h"
+VERSION = "0.3"
 # pin 16 on header (bcm)
 SENSOR_PIN = 23
 # pin 12 on header
 RELAIS_PIN = 18
-PICAM_ROTATE = 270
+PICAM_ROTATE = 0
 
 ## next todos
 # - start thread at sensor trigger/rising edge
@@ -33,7 +33,7 @@ PICAM_ROTATE = 270
 # - do same stuff with node.js ;)
 # - face detect
 
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)-8s %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         filename='pir.log')
@@ -74,6 +74,12 @@ def signal_term_handler(signal, frame):
     sys.exit(0)
 
 
+def send_error_mail(msg):
+    logging.debug("sending error message via mail: " + msg)
+
+
+
+
 def its_dark():
     now = datetime.datetime.now().time().strftime("%H:%M")
     try:
@@ -98,6 +104,7 @@ def its_dark():
         logging.debug("ss:  " + ss)
     except Exception, e:
         logging.error("cannot query astronomy file (wrong json??)")
+        # email error msg
         return True
 
     if now < ss and now > sr:
@@ -133,21 +140,31 @@ def callback_pir(channel):
         camera.brightness = 60
 
         sense_start_time = time.time()
-        image_name = imgdir + "image_" + timestamp + ".jpg"
-        logging.info('Es gab eine Bewegung! ' + timestamp  +' Bild:' + image_name)
+        image_name = imgdir + "image_" + timestamp + "_"
+        logging.info('Es gab eine Bewegung! ' + timestamp)
+        #+' Bild:' + image_name)
         #th_light_off = threading.Timer(35.0, light_off)
         #th_light_off.start()
         # turn on lamp if it's dark ...
         if its_dark():
             GPIO.output(RELAIS_PIN, GPIO.HIGH)
+
         time.sleep(2)
-        #camera.start_preview()
-        logging.debug("capture image...")
-        camera.capture(image_name)
+        try:
+            for i, filename in enumerate(camera.capture_continuous(image_name + '{counter:02d}.jpg')):
+                logging.debug("capture image..." + filename)
+                time.sleep(1)
+                if i == 2:
+                    break
+        finally:
+            camera.close()
+
         if scp_images:
             time.sleep(2)
-            os.system('scp "%s" "%s"' % (image_name, os.environ['PIR_SCPHOST']))
-        camera.close()
+            logging.debug("scp images to remote host: " + image_name + "_*.jpg")
+            filelist = glob.glob(image_name + '*.jpg')
+            for filename in filelist:
+                os.system('scp "%s" "%s"' % (filename, os.environ['PIR_SCPHOST']))
 
     else:
         duration = time.time() - sense_start_time
