@@ -16,7 +16,7 @@ import signal
 import sys
 import glob
 
-VERSION = "0.3"
+VERSION = "0.3.1"
 # pin 16 on header (bcm)
 SENSOR_PIN = 23
 # pin 12 on header
@@ -138,22 +138,20 @@ def callback_pir(channel):
         camera.resolution = (1024, 768)
         camera.rotation = PICAM_ROTATE
         camera.brightness = 60
+        camera.annotate_text = timestamp
 
         sense_start_time = time.time()
         image_name = imgdir + "image_" + timestamp + "_"
         logging.info('Es gab eine Bewegung! ' + timestamp)
-        #+' Bild:' + image_name)
-        #th_light_off = threading.Timer(35.0, light_off)
-        #th_light_off.start()
         # turn on lamp if it's dark ...
         if its_dark():
             GPIO.output(RELAIS_PIN, GPIO.HIGH)
 
-        time.sleep(2)
+        time.sleep(1)
         try:
             for i, filename in enumerate(camera.capture_continuous(image_name + '{counter:02d}.jpg')):
                 logging.debug("capture image..." + filename)
-                time.sleep(1)
+                time.sleep(0.7)
                 if i == 2:
                     break
         finally:
