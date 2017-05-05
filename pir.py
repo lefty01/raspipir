@@ -16,7 +16,7 @@ import signal
 import sys
 import glob
 
-VERSION = "0.3.1"
+VERSION = "0.3.3"
 # pin 16 on header (bcm)
 SENSOR_PIN = 23
 # pin 12 on header
@@ -139,6 +139,8 @@ def callback_pir(channel):
         camera.rotation = PICAM_ROTATE
         camera.brightness = 60
         camera.annotate_text = timestamp
+        camera.annotate_background = picamera.Color('black')
+
 
         sense_start_time = time.time()
         image_name = imgdir + "image_" + timestamp + "_"
@@ -147,18 +149,17 @@ def callback_pir(channel):
         if its_dark():
             GPIO.output(RELAIS_PIN, GPIO.HIGH)
 
-        time.sleep(1)
+        time.sleep(1.1)
         try:
             for i, filename in enumerate(camera.capture_continuous(image_name + '{counter:02d}.jpg')):
                 logging.debug("capture image..." + filename)
-                time.sleep(0.7)
+                time.sleep(0.6)
                 if i == 2:
                     break
         finally:
             camera.close()
 
         if scp_images:
-            time.sleep(2)
             logging.debug("scp images to remote host: " + image_name + "_*.jpg")
             filelist = glob.glob(image_name + '*.jpg')
             for filename in filelist:
