@@ -5,8 +5,9 @@ import re
 from io import BytesIO
 import RPi.GPIO as GPIO
 import time, datetime
-#import picamera
+
 from picamera import PiCamera
+from picamera import Color
 import logging
 import json
 #import ftplib
@@ -16,7 +17,7 @@ import signal
 import sys
 import glob
 
-VERSION = "0.3.3"
+VERSION = "0.3.4"
 # pin 16 on header (bcm)
 SENSOR_PIN = 23
 # pin 12 on header
@@ -139,7 +140,7 @@ def callback_pir(channel):
         camera.rotation = PICAM_ROTATE
         camera.brightness = 60
         camera.annotate_text = timestamp
-        camera.annotate_background = picamera.Color('black')
+        camera.annotate_background = Color('black')
 
 
         sense_start_time = time.time()
